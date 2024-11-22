@@ -53,8 +53,11 @@ const LOCAL_TEMP_DIR = process.env['LOCAL_TEMP_DIR'] || '/tmp/';
 const WS_LOG_LEVEL = process.env['WS_LOG_LEVEL'] || 'debug';
 const WS_LOG_INTERVAL = parseInt(process.env['WS_LOG_INTERVAL'] || '120', 10);
 const SHOULD_RECORD_CALL = process.env['SHOULD_RECORD_CALL'] || 'false';
-// const TALKDESK_ACCOUNT_ID = process.env['TALKDESK_ACCOUNT_ID'] || '';
+const TALKDESK_ACCOUNT_ID = process.env['TALKDESK_ACCOUNT_ID'] || '';
 
+// Add new constants for Exotel
+const EXOTEL_ACCOUNT_ID = process.env['TALKDESK_ACCOUNT_ID'] || ''; //same field for now
+const SOURCE_PLATFORM = 'EXOTEL';
 // Source specific audio parameters
 // const CHUNK_SIZE_IN_MS = parseInt(process.env['CHUNK_SIZE_IN_MS'] || '20', 10);
 const SAMPLE_RATE = parseInt(process.env['SAMPLE_RATE'] || '8000', 10);
@@ -181,25 +184,32 @@ const onConnected = async (clientIP: string, ws: WebSocket, data: MediaStreamCon
     server.log.info(`[ON CONNECTED]: [${clientIP}] - Client connected: ${JSON.stringify(data)}`);
 };
 
+// Modify onStart function to handle Exotel account validation
 const onStart = async (clientIP: string, ws: WebSocket, data: MediaStreamStartMessage): Promise<void> => {
-    server.log.info(`[ON START]: [${clientIP}][${data.start.callSid}] - Received Start event from client. ${JSON.stringify(data)}`);
+    server.log.info(`[ON START]: [${clientIP}][${data.start.callSid}] - Received Start event`);
     
-    // if (data.start.accountSid !== TALKDESK_ACCOUNT_ID) {
-    //     server.log.error(`[ON START]: [${clientIP}][${data.start.callSid}] - Error: Account ID received does not match the configured account ID.${JSON.stringify(data)}`);
-    //     server.log.error(`[ON START]: [${clientIP}][${data.start.callSid}] - Closing the websocket connection`);
-    //     ws.close(401);
-    //     return;
-    // }
+    if (SOURCE_PLATFORM === 'EXOTEL') {
+        if (data.start.accountSid !== EXOTEL_ACCOUNT_ID) {
+            server.log.error(`[ON START]: Invalid Exotel Account ID`);
+            ws.close(401);
+            return;
+        }
+    } else if (data.start.accountSid !== TALKDESK_ACCOUNT_ID) {
+        server.log.error(`[ON START]: Invalid Talkdesk Account ID`);
+        ws.close(401);
+        return;
+    }
 
+    // Rest of the original onStart implementation...
     const callMetaData: CallMetaData = {
         callEvent: 'START',
         callId: data.start.callSid,
         fromNumber: data.start.from || 'Customer Phone',
         toNumber: data.start.to || 'System Phone',
-        shouldRecordCall: SHOULD_RECORD_CALL === 'true' ? true : false,
-        samplingRate: data.start.mediaFormat.sample_rate ? 
+        shouldRecordCall: SHOULD_RECORD_CALL === 'true',
+        samplingRate: SOURCE_PLATFORM === 'EXOTEL' ? 
             parseInt(data.start.mediaFormat.sample_rate) : 
-            (data.start.mediaFormat.sampleRate || SAMPLE_RATE),
+            SAMPLE_RATE,
         agentId: randomUUID(),
     };
 
@@ -244,9 +254,9 @@ const onStart = async (clientIP: string, ws: WebSocket, data: MediaStreamStartMe
     startTranscribe(callMetaData, audioInputStream, socketCallMap, server);
 };
 
+// Modify onMedia function to handle Exotel's audio format
 const onMedia = async (clientIP: string, ws: WebSocket, data: MediaStreamMediaMessage): Promise<void> => {
     const socketData = socketMap.get(ws);
-
     let callid = `Stream ID-${data.streamSid}`;
     if (socketData && socketData.callMetadata) {
         callid = socketData.callMetadata.callId;
@@ -256,16 +266,26 @@ const onMedia = async (clientIP: string, ws: WebSocket, data: MediaStreamMediaMe
         socketData.writeRecordingStream !== undefined && socketData.recordingFileSize !== undefined) {
         
         const payload = Buffer.from(data.media.payload, 'base64');
-        
-        // Write to both blocks since we're handling single channel audio
-        socketData.agentBlock.write(payload);
-        socketData.callerBlock.write(payload);
 
+        if (SOURCE_PLATFORM === 'EXOTEL') {
+            // Exotel sends 16-bit PCM directly
+            socketData.agentBlock.write(payload);
+            socketData.callerBlock.write(payload);
+        } else {
+            // Original Talkdesk handling
+            const pcm16 = ulawToL16(payload);
+            const pcm16Buffer = new Uint8Array(pcm16.buffer, pcm16.byteOffset, pcm16.byteLength);
+
+            if (data.media.track == 'inbound') {
+                socketData.agentBlock.write(pcm16Buffer);
+            } else if (data.media.track == 'outbound') {
+                socketData.callerBlock.write(pcm16Buffer);
+            }
+        }
     } else {
-        server.log.error(`[ON MEDIA]: [${clientIP}][${callid}] - Error: received 'media' event before receiving 'start' event. Check logs for errors related to 'start' event.`);
+        server.log.error(`[ON MEDIA]: [${clientIP}][${callid}] - Error: received 'media' event before receiving 'start' event.`);
     }
 };
-
 const endCall = async (ws: WebSocket, callMetaData: CallMetaData|undefined, socketData: SocketCallData): Promise<void> => {
     
     if (callMetaData === undefined) {
