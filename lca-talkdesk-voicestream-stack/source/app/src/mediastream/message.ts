@@ -41,36 +41,6 @@ export type MediaStreamBase<Type extends MediaStreamEventType = MediaStreamEvent
     streamSid: Uuid;
 }
 
-export type MediaStreamStartMessage = MediaStreamBase<StartEvent> & {
-    start: {
-        accountSid: Uuid;
-        streamSid: Uuid;
-        callSid: Uuid;
-        tracks: string[];
-        mediaFormat: {
-            encoding: string;
-            sampleRate: number;
-            channels: number
-        };
-    }
-}
-
-export type MediaStreamMediaMessage = MediaStreamBase<MediaEvent> & {
-    media: {
-        track: string;
-        chunk: string;  
-        timestamp: Uuid;
-        payload: string;
-    }
-}
-
-export type MediaStreamStopMessage = MediaStreamBase<StopEvent> & {
-    stop: {
-        accountSid: Uuid;
-        callSid: Uuid;  
-    }
-}
-
 export type MediaStreamMessage = 
     | MediaStreamConnectedMessage 
     | MediaStreamStartMessage 

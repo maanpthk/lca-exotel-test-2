@@ -34,7 +34,7 @@ import {
 } from './calleventdata';
 
 import {
-    // ulawToL16,
+    ulawToL16,
     // msToBytes,
     createWavHeader,
     getClientIP,
@@ -208,8 +208,8 @@ const onStart = async (clientIP: string, ws: WebSocket, data: MediaStreamStartMe
         toNumber: data.start.to || 'System Phone',
         shouldRecordCall: SHOULD_RECORD_CALL === 'true',
         samplingRate: SOURCE_PLATFORM === 'EXOTEL' ? 
-            parseInt(data.start.mediaFormat.sample_rate) : 
-            SAMPLE_RATE,
+          parseInt(data.start.mediaFormat.sample_rate || '') : // For Exotel
+          data.start.mediaFormat.sampleRate || SAMPLE_RATE, // For Talkdesk
         agentId: randomUUID(),
     };
 
