@@ -207,9 +207,7 @@ const onStart = async (clientIP: string, ws: WebSocket, data: MediaStreamStartMe
         fromNumber: data.start.from || 'Customer Phone',
         toNumber: data.start.to || 'System Phone',
         shouldRecordCall: SHOULD_RECORD_CALL === 'true',
-        samplingRate: SOURCE_PLATFORM === 'EXOTEL' ? 
-          parseInt(data.start.mediaFormat.sample_rate || '') : // For Exotel
-          data.start.mediaFormat.sampleRate || SAMPLE_RATE, // For Talkdesk
+        samplingRate: 8000,
         agentId: randomUUID(),
     };
 
