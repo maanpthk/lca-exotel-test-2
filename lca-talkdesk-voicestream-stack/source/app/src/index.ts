@@ -184,12 +184,12 @@ const onConnected = async (clientIP: string, ws: WebSocket, data: MediaStreamCon
 const onStart = async (clientIP: string, ws: WebSocket, data: MediaStreamStartMessage): Promise<void> => {
     server.log.info(`[ON START]: [${clientIP}][${data.start.callSid}] - Received Start event from client. ${JSON.stringify(data)}`);
     
-    if (data.start.accountSid !== TALKDESK_ACCOUNT_ID) {
-        server.log.error(`[ON START]: [${clientIP}][${data.start.callSid}] - Error: Account ID received does not match the configured account ID.${JSON.stringify(data)}`);
-        server.log.error(`[ON START]: [${clientIP}][${data.start.callSid}] - Closing the websocket connection`);
-        ws.close(401);
-        return;
-    }
+    // if (data.start.accountSid !== TALKDESK_ACCOUNT_ID) {
+    //     server.log.error(`[ON START]: [${clientIP}][${data.start.callSid}] - Error: Account ID received does not match the configured account ID.${JSON.stringify(data)}`);
+    //     server.log.error(`[ON START]: [${clientIP}][${data.start.callSid}] - Closing the websocket connection`);
+    //     ws.close(401);
+    //     return;
+    // }
 
     const callMetaData: CallMetaData = {
         callEvent: 'START',
