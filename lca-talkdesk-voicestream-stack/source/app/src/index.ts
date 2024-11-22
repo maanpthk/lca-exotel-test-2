@@ -185,7 +185,7 @@ const onStart = async (clientIP: string, ws: WebSocket, data: MediaStreamStartMe
     server.log.info(`[ON START]: [${clientIP}][${data.start.callSid}] - Received Start event from client. ${JSON.stringify(data)}`);
     
     if (data.start.accountSid !== TALKDESK_ACCOUNT_ID) {
-        server.log.error(`[ON START]: [${clientIP}][${data.start.callSid}] - Error: Account ID received from Exotel does not match the configured account ID.${JSON.stringify(data)}`);
+        server.log.error(`[ON START]: [${clientIP}][${data.start.callSid}] - Error: Account ID received does not match the configured account ID.${JSON.stringify(data)}`);
         server.log.error(`[ON START]: [${clientIP}][${data.start.callSid}] - Closing the websocket connection`);
         ws.close(401);
         return;
@@ -197,7 +197,9 @@ const onStart = async (clientIP: string, ws: WebSocket, data: MediaStreamStartMe
         fromNumber: data.start.from || 'Customer Phone',
         toNumber: data.start.to || 'System Phone',
         shouldRecordCall: SHOULD_RECORD_CALL === 'true' ? true : false,
-        samplingRate: parseInt(data.start.mediaFormat.sample_rate || '8000'),
+        samplingRate: data.start.mediaFormat.sample_rate ? 
+            parseInt(data.start.mediaFormat.sample_rate) : 
+            (data.start.mediaFormat.sampleRate || SAMPLE_RATE),
         agentId: randomUUID(),
     };
 
@@ -253,17 +255,16 @@ const onMedia = async (clientIP: string, ws: WebSocket, data: MediaStreamMediaMe
     if (socketData !== undefined && socketData.audioInputStream !== undefined &&
         socketData.writeRecordingStream !== undefined && socketData.recordingFileSize !== undefined) {
         
-        // Exotel sends PCM 16-bit audio directly
         const payload = Buffer.from(data.media.payload, 'base64');
         
-        // Since Exotel sends single channel audio, write to both blocks
+        // Write to both blocks since we're handling single channel audio
         socketData.agentBlock.write(payload);
         socketData.callerBlock.write(payload);
+
     } else {
         server.log.error(`[ON MEDIA]: [${clientIP}][${callid}] - Error: received 'media' event before receiving 'start' event. Check logs for errors related to 'start' event.`);
     }
 };
-
 
 const endCall = async (ws: WebSocket, callMetaData: CallMetaData|undefined, socketData: SocketCallData): Promise<void> => {
     
