@@ -60,7 +60,7 @@ const EXOTEL_ACCOUNT_ID = process.env['TALKDESK_ACCOUNT_ID'] || ''; //same field
 const SOURCE_PLATFORM = 'EXOTEL';
 // Source specific audio parameters
 // const CHUNK_SIZE_IN_MS = parseInt(process.env['CHUNK_SIZE_IN_MS'] || '20', 10);
-const SAMPLE_RATE = parseInt(process.env['SAMPLE_RATE'] || '8000', 10);
+// const SAMPLE_RATE = parseInt(process.env['SAMPLE_RATE'] || '8000', 10);
 // const MULAW_BYTES_PER_SAMPLE = parseInt(process.env['MULAW_BYTES_PER_SAMPLE'] || '4', 10);
 
 const s3Client = new S3Client({ region: AWS_REGION });
@@ -207,7 +207,7 @@ const onStart = async (clientIP: string, ws: WebSocket, data: MediaStreamStartMe
         fromNumber: data.start.from || 'Customer Phone',
         toNumber: data.start.to || 'System Phone',
         shouldRecordCall: SHOULD_RECORD_CALL === 'true',
-        samplingRate: 8000,
+        samplingRate: parseInt(data.start.mediaFormat.sample_rate || ''),
         agentId: randomUUID(),
     };
 
